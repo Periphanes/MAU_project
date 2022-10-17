@@ -43,7 +43,7 @@ class LSTM(torch.nn.Module):
         self.args = args
         self.batch_size = args.batch_size
         self.input_size = 15
-        self.hidden_size = 2056
+        self.hidden_size = 16
         self.num_layers = 1
 
         self.lstm = nn.LSTM(input_size = self.input_size, hidden_size = self.hidden_size, \
@@ -90,7 +90,7 @@ parser.add_argument('--epochs', type=int, default=100)
 args = parser.parse_args()
 
 lstmNet = LSTM(args)
-optimizer = torch.optim.Adam(lstmNet.parameters(), lr=5e-5)
+optimizer = torch.optim.Adam(lstmNet.parameters(), lr=1e-2)
 loss_func = torch.nn.MSELoss()
 
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
@@ -101,7 +101,7 @@ def train_model(data_loader, model, criterion, optimizer):
     total_loss = 0
     model.train()
 
-    for X, y in data_loader:
+    for X, y in tqdm(data_loader):
         output = model(X)
         loss = criterion(output, y)
 
@@ -121,7 +121,7 @@ def test_model(data_loader, model, criterion):
 
     model.eval()
     with torch.no_grad():
-        for X, y in data_loader:
+        for X, y in tqdm(data_loader):
             output = model(X)
             total_loss += criterion(output, y).item()
 
@@ -136,5 +136,5 @@ print("")
 for epoch in range(args.epochs):
     print(f"Epoch {epoch}\n ---------")
     train_model(train_loader, lstmNet, loss_func, optimizer=optimizer)
-    test_model(test_loader, lstmNet, loss_func, optimizer=optimizer)
+    test_model(test_loader, lstmNet, loss_func)
     print("")
