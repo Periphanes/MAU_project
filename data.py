@@ -2,10 +2,11 @@ import pickle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
+from tqdm import tqdm
 
 pickle_dir = 'C:\MAU_dataset\pickle\ '
 
@@ -23,17 +24,17 @@ wealth_ratio = [5.770171165, 5.975523472, 5.884808064, 6.399320602, 6.005833626,
                 7.533388615, 7.565679073, 7.647249699, 7.637476921,7.681171417,   \
                 7.638151646, 7.695356369, 7.775409698, 7.995022297,8.319354057, 8.814061165, 8.834832191]
 
-train_x = finalData[:, :30]
-train_y = np.array(wealth_ratio[:16])
+train_x = torch.FloatTensor(finalData[:, :30])
+train_y = torch.FloatTensor(np.array(wealth_ratio[:16]))
 
-test_x = finalData[:, 16:]
-test_y = np.array(wealth_ratio[16:21])
+test_x = torch.FloatTensor(finalData[:, 16:])
+test_y = torch.FloatTensor(np.array(wealth_ratio[16:21]))
 
-print(train_x.shape)
-print(train_y.shape)
+print("Train X :", train_x.shape)
+print("Train Y :", train_y.shape)
 
-print(test_x.shape)
-print(test_y.shape)
+print("Test X :", test_x.shape)
+print("Test Y", test_y.shape)
 
 
 class LSTM(torch.nn.Module):
@@ -53,11 +54,12 @@ class LSTM(torch.nn.Module):
     
     def forward(self, x):
         output, (hn, cn) = self.lstm(x)
-        print(output.shape)
+        
+        output = output.squeeze()
+        output = output[-1,:]
 
-        exit(1)
-
-        return output
+        regress = self.regresser(output)
+        return regress
 
 class SequenceDataset(Dataset):
     def __init__(self, x, y):
@@ -91,3 +93,48 @@ lstmNet = LSTM(args)
 optimizer = torch.optim.Adam(lstmNet.parameters(), lr=5e-5)
 loss_func = torch.nn.MSELoss()
 
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+
+def train_model(data_loader, model, criterion, optimizer):
+    num_batches = len(data_loader)
+    total_loss = 0
+    model.train()
+
+    for X, y in data_loader:
+        output = model(X)
+        loss = criterion(output, y)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+    
+    avg_loss = total_loss / num_batches
+
+    print(f"Train Loss: {avg_loss}")
+
+def test_model(data_loader, model, criterion):
+    num_batches = len(data_loader)
+    total_loss = 0
+
+    model.eval()
+    with torch.no_grad():
+        for X, y in data_loader:
+            output = model(X)
+            total_loss += criterion(output, y).item()
+
+    avg_loss = total_loss / num_batches
+    print(f"Test Loss: {avg_loss}")
+
+print("Untrained Test \n----------")
+test_model(test_loader, lstmNet, loss_func)
+print("")
+
+
+for epoch in range(args.epochs):
+    print(f"Epoch {epoch}\n ---------")
+    train_model(train_loader, lstmNet, loss_func, optimizer=optimizer)
+    test_model(test_loader, lstmNet, loss_func, optimizer=optimizer)
+    print("")
