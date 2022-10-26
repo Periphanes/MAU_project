@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from models.LSTM import LSTM
 from models.Ttrans import TransformerModel
+from models.GRU import GRU
 
 
 pickle_dir = 'C:\MAU_dataset\pickle\ '
@@ -94,7 +95,7 @@ test_dataset = SequenceDataset(test_x, test_y)
 # print(x)
 # print(y)
 
-lstmNet = TransformerModel(args)
+lstmNet = GRU(args)
 optimizer = torch.optim.Adam(lstmNet.parameters(), lr=1e-2)
 loss_func = torch.nn.MSELoss()
 
@@ -153,10 +154,10 @@ for epoch in range(args.epochs):
     test_model(test_loader, lstmNet, loss_func)
     print("")
 
-print("\n\nTrain Losses Array:")
-for l in train_loss:
-    print(l)
+# print("\n\nTrain Losses Array:")
+# for l in train_loss:
+#     print(l)
 
-print("\n\nTest Losses Array:")
-for l in test_loss:
-    print(l)
+# print("\n\nTest Losses Array:")
+# for l in test_loss:
+#     print(l)
