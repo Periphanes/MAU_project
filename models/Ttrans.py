@@ -53,7 +53,12 @@ class TransformerModel(torch.nn.Module):
         
         self.relu = nn.ReLU()
         self.regresser = nn.Linear(self.model_dim, 1)
-    
+
+        self.regresser_list = nn.ModuleList()
+
+        for _ in range(args.prediction_years):
+            self.regresser_list.append(nn.Linear(self.model_dim, 1))
+
     def forward(self, x):
         # print(x.shape)
         embedding = []
@@ -74,6 +79,14 @@ class TransformerModel(torch.nn.Module):
 
         cls_output = output[:,0,:]
 
-        regress = self.regresser(cls_output)
+        # test_out = self.regresser(cls_output)
+        # print(test_out.shape)
+
+        regress_list = []
+        for idx, regress in enumerate(self.regresser_list):
+            regress_list.append(regress(cls_output))
+
+        output = torch.stack(regress_list).squeeze().unsqueeze(0)
+
         # print(regress.shape)
-        return regress
+        return output

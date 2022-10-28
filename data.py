@@ -1,4 +1,5 @@
 import pickle
+from matplotlib import test
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 from tqdm import tqdm
+from yaml import parse
 
 from models.LSTM import LSTM
 from models.Ttrans import TransformerModel
@@ -27,6 +29,9 @@ parser.add_argument('--input-size', type=int, default=15)
 parser.add_argument('--batch-size', type=int, default=1)
 parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--target', type=str, default="ratio", choices=["ratio", "top1", "top10", "bot50"])
+parser.add_argument('--model', type=str, default="trans", choices=["trans", "lstm", "gru"])
+parser.add_argument('--prediction-years', type=int, default=1)
+parser.add_argument('--train-years', type=int, default=15)
 
 args = parser.parse_args()
 
@@ -62,17 +67,34 @@ elif args.target == "top10":
 elif args.target == "bot50":
     y = bottom_50
 
-train_x = torch.FloatTensor(finalData[:, :30])
-train_y = torch.FloatTensor(np.array(y[:16]))
 
-test_x = torch.FloatTensor(finalData[:, 16:])
-test_y = torch.FloatTensor(np.array(y[16:21]))
+pred_years = args.prediction_years
+tr_years = args.train_years
+
+start = 1995
+end = min(2021 - (pred_years - 1), 2015)
+
+possible_years = end - start + 1
+
+test_years = possible_years // 5
+train_years = possible_years - test_years
+
+train_x = torch.FloatTensor(finalData[:, :(1994 - 1980) + train_years])
+train_y = torch.FloatTensor(np.array(y[:train_years + pred_years - 1]))
+
+test_x = torch.FloatTensor(finalData[:, 20 - (test_years - 1):])
+test_y = torch.FloatTensor(np.array(y[train_years:]))
+
+print("Train Years : ", train_years)
+print("Test Years : ", test_years)
 
 print("Train X :", train_x.shape)
 print("Train Y :", train_y.shape)
 
 print("Test X :", test_x.shape)
 print("Test Y", test_y.shape)
+
+print(finalData.shape)
 
 class SequenceDataset(Dataset):
     def __init__(self, x, y):
@@ -81,11 +103,11 @@ class SequenceDataset(Dataset):
     
     def __len__(self):
         # 1995 ~ 2015년 예측 -> length of 21
-        return self.y.shape[0]
+        return self.y.shape[0] - pred_years
     
     def __getitem__(self, i):
         x = self.x[:, i:i+15]
-        y = self.y[i]
+        y = self.y[i:i+pred_years]
         return x,y
 
 train_dataset = SequenceDataset(train_x, train_y)
@@ -96,7 +118,35 @@ test_dataset = SequenceDataset(test_x, test_y)
 # print(y)
 
 lstmNet = GRU(args)
-optimizer = torch.optim.Adam(lstmNet.parameters(), lr=1e-2)
+
+if args.model == "trans":
+    model = TransformerModel(args)
+elif args.model == "lstm":
+    model = LSTM(args)
+elif args.model == "gru":
+    model = GRU(args)
+
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+
+def loss_func(output, y):
+    # print(output.shape)
+    # print(y.shape)
+    # exit(1)
+
+    each_loss = []
+    total_loss = 0
+    
+    output = output.squeeze()
+    y = y.squeeze()
+
+    for idx in range(output.shape[0]):
+        total_loss += (output[idx].item() - y[idx].item())**2
+        each_loss.append((output[idx].item() - y[idx].item())**2)
+    
+    print(total_loss)
+    
+    return total_loss, each_loss
+
 loss_func = torch.nn.MSELoss()
 
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
@@ -104,7 +154,6 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False
 
 train_loss = []
 test_loss = []
-
 
 def train_model(data_loader, model, criterion, optimizer):
     num_batches = len(data_loader)
@@ -143,16 +192,36 @@ def test_model(data_loader, model, criterion):
 
     print(f"Test Loss: {avg_loss}")
 
+def final_test_model(data_loader, model, criterion):
+    num_batches = len(data_loader)
+    total_loss = 0
+
+    model.eval()
+    with torch.no_grad():
+        for X, y in tqdm(data_loader):
+            output = model(X)
+            print(output)
+            print(y)
+            total_loss += criterion(output, y).item()
+
+    avg_loss = total_loss / num_batches
+
+    test_loss.append(avg_loss)
+
+    print(f"Test Loss: {avg_loss}")
+
 print("Untrained Test \n----------")
-test_model(test_loader, lstmNet, loss_func)
+test_model(test_loader, model, loss_func)
 print("")
 
 
 for epoch in range(args.epochs):
     print(f"Epoch {epoch}\n ---------")
-    train_model(train_loader, lstmNet, loss_func, optimizer=optimizer)
-    test_model(test_loader, lstmNet, loss_func)
+    train_model(train_loader, model, loss_func, optimizer=optimizer)
+    test_model(test_loader, model, loss_func)
     print("")
+
+final_test_model(test_loader, model, loss_func)
 
 # print("\n\nTrain Losses Array:")
 # for l in train_loss:
