@@ -18,6 +18,11 @@ class GRU(torch.nn.Module):
         
         self.relu = nn.ReLU()
         self.regresser = nn.Linear(self.hidden_size, 1)
+
+        self.regresser_list = nn.ModuleList()
+
+        for _ in range(args.prediction_years):
+            self.regresser_list.append(nn.Linear(self.hidden_size, 1))
     
     def forward(self, x):
         output, hn = self.lstm(x)
@@ -25,5 +30,13 @@ class GRU(torch.nn.Module):
         output = output.squeeze()
         output = output[-1,:]
 
-        regress = self.regresser(output)
-        return regress
+        regress_list = []
+        for idx, regress in enumerate(self.regresser_list):
+            regress_list.append(regress(output))
+
+        output = torch.stack(regress_list).squeeze().unsqueeze(0)
+
+        if self.args.prediction_years == 1:
+            output = output.unsqueeze(0)
+
+        return output
