@@ -44,7 +44,7 @@ class TransformerModel(torch.nn.Module):
         self.encoder_layers = TransformerEncoderLayer(self.model_dim, self.num_heads, self.model_dim, self.dropout)
         self.trasnformer_encoder = TransformerEncoder(self.encoder_layers, self.num_layers)
 
-        self.cls_token = torch.rand((1,1,128))
+        self.cls_token = torch.rand((1,1,self.model_dim))
 
         self.init_fc = nn.Linear(self.input_dim, self.model_dim)
 
@@ -87,6 +87,9 @@ class TransformerModel(torch.nn.Module):
             regress_list.append(regress(cls_output))
 
         output = torch.stack(regress_list).squeeze().unsqueeze(0)
+
+        if self.args.prediction_years == 1:
+            output = output.unsqueeze(0)
 
         # print(regress.shape)
         return output
