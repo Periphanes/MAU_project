@@ -33,6 +33,12 @@ parser.add_argument('--model', type=str, default="trans", choices=["trans", "lst
 parser.add_argument('--prediction-years', type=int, default=1)
 parser.add_argument('--train-years', type=int, default=15)
 
+# Transformer Hyper Parameter
+parser.add_argument('--trans-head', type=int, default=2)
+parser.add_argument('--trans-layer', type=int, default=1)
+parser.add_argument('--trans-dropout', type=float, default=0.1)
+parser.add_argument('--trans-dim', type=int, default=128)
+
 args = parser.parse_args()
 
 # Net national wealth to Net National Income Ratio (1995 ~ 2021) [~26]

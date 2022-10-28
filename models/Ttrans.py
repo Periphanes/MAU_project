@@ -34,10 +34,10 @@ class TransformerModel(torch.nn.Module):
         super(TransformerModel, self).__init__()
         self.args = args
         self.batch_size = args.batch_size
-        self.num_heads = 2
-        self.dropout = 0.1
-        self.num_layers = 1
-        self.model_dim = 128
+        self.num_heads = args.trans_head
+        self.dropout = args.trans_dropout
+        self.num_layers = args.trans_layer
+        self.model_dim = args.trans_dim
         self.input_dim = 1882
 
         self.pos_encoder = PositionalEncoding(self.model_dim, self.dropout)
