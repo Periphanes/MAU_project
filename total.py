@@ -52,17 +52,17 @@ wealth_ratio = [5.770171165, 5.975523472, 5.884808064, 6.399320602, 6.005833626,
 # Wealth Share of national top 1%
 top_1 = [0.2355, 0.2392, 0.2364, 0.2293, 0.2321, 0.2342, 0.2359, 0.2374, 0.2385, \
         0.2392, 0.2367, 0.2482, 0.2501, 0.2514, 0.2504, 0.252, 0.2529, 0.2524,  \
-        0.2532, 0.2534, 0.2568, 0.2565, 0.2584, 0.2617, 0.2572, 0.2527, 0.257]
+        0.2532, 0.2534, 0.2568, 0.2565, 0.2584, 0.2617, 0.2572, 0.2527, 0.257] * 100
 
 # Wealth Share of national top 10%
 top_10 = [0.5694, 0.574, 0.5732, 0.5671, 0.5701, 0.5723, 0.574, 0.5756, 0.5767, 0.5774, \
         0.5749, 0.5862, 0.5881, 0.5894, 0.5883, 0.5899, 0.5906, 0.5897, 0.59, 0.5902, \
-        0.5925, 0.5927, 0.5938, 0.5955, 0.5931, 0.5906, 0.593]
+        0.5925, 0.5927, 0.5938, 0.5955, 0.5931, 0.5906, 0.593] * 100
 
 # Wealth share of national bottom 50%
 bottom_50 = [0.05, 0.0494, 0.0495, 0.0503, 0.0499, 0.0496, 0.0494, 0.0492, 0.049, 0.0489, \
             0.0493, 0.0477, 0.0475, 0.0473, 0.0474, 0.0472, 0.0471, 0.0472, 0.0472, 0.0472, \
-            0.0469, 0.0468, 0.0467, 0.0465, 0.0468, 0.0471, 0.0468]
+            0.0469, 0.0468, 0.0467, 0.0465, 0.0468, 0.0471, 0.0468] * 100
 
 if args.target == "ratio":
     y = wealth_ratio
@@ -76,6 +76,8 @@ elif args.target == "bot50":
 
 train_loss = []
 test_loss = []
+
+final_loss = []
 
 def train_model(data_loader, model, criterion, optimizer):
     num_batches = len(data_loader)
@@ -103,6 +105,7 @@ def test_model(data_loader, model, criterion):
     model.eval()
     with torch.no_grad():
         for X, y in data_loader:
+            #print(X.shape)
             output = model(X)
             total_loss += criterion(output, y).item()
 
@@ -124,6 +127,7 @@ def final_test_model(data_loader, model, criterion):
     print(f"{avg_loss}")
 
     test_loss.append(avg_loss)
+    final_loss.append(avg_loss)
 
 class SequenceDataset(Dataset):
     def __init__(self, x, y):
@@ -132,7 +136,7 @@ class SequenceDataset(Dataset):
     
     def __len__(self):
         # 1995 ~ 2015년 예측 -> length of 21
-        return self.y.shape[0] - args.prediction_years
+        return self.x.shape[-1] - 14
     
     def __getitem__(self, i):
         x = self.x[:, i:i+15]
@@ -154,11 +158,17 @@ for i in range(1, 16):
     test_years = possible_years // 5
     train_years = possible_years - test_years
 
+    args.test_years = test_years
+
+    # print(pred_years, test_years, train_years)
+
     train_x = torch.FloatTensor(finalData[:, :(1994 - 1980) + train_years])
     train_y = torch.FloatTensor(np.array(y[:train_years + pred_years - 1]))
 
-    test_x = torch.FloatTensor(finalData[:, 20 - (test_years - 1):])
+    test_x = torch.FloatTensor(finalData[:, 21 - test_years:])
     test_y = torch.FloatTensor(np.array(y[train_years:]))
+
+    # print(test_years, test_x.shape, possible_years)
 
     train_dataset = SequenceDataset(train_x, train_y)
     test_dataset = SequenceDataset(test_x, test_y)
@@ -177,10 +187,15 @@ for i in range(1, 16):
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
+    # print(test_dataset.__len__(), test_dataset.y)
 
-
-    for epoch in range(args.epochs):
+    for epoch in tqdm(range(args.epochs)):
         train_model(train_loader, model, loss_func, optimizer=optimizer)
         test_model(test_loader, model, loss_func)
 
     final_test_model(test_loader, model, loss_func)
+
+print("\n\n")
+
+for l in final_loss:
+    print(l)
