@@ -11,7 +11,7 @@ class LSTM(torch.nn.Module):
         self.batch_size = args.batch_size
         self.input_size = 15
         self.hidden_size = 16
-        self.num_layers = 2
+        self.num_layers = 1
 
         self.lstm = nn.LSTM(input_size = self.input_size, hidden_size = self.hidden_size, \
                             num_layers = self.num_layers, batch_first = True)
