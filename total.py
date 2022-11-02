@@ -14,6 +14,7 @@ from models.LSTM import LSTM
 from models.Ttrans import TransformerModel
 from models.GRU import GRU
 
+import tqdm
 
 pickle_dir = 'C:\MAU_dataset\pickle\ '
 

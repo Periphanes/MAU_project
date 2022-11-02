@@ -100,6 +100,8 @@ print("Train Y :", train_y.shape)
 print("Test X :", test_x.shape)
 print("Test Y", test_y.shape)
 
+print("Test Print")
+
 print(finalData.shape)
 
 class SequenceDataset(Dataset):
